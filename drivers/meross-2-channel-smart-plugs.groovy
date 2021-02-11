@@ -26,7 +26,6 @@ metadata {
     ) {
         capability 'Actuator'
         capability 'Switch'
-        capability 'Polling'
         capability 'Refresh'
         capability 'Sensor'
         capability 'Configuration'
@@ -129,7 +128,7 @@ def componentRefresh(cd) {
 
 def updated() {
     log.info('Updated')
-    refresh()
+    initialize();
 }
 
 def parse(String description) {
@@ -140,13 +139,13 @@ def parse(String description) {
     if (body.payload.all) {
         def parent = body.payload.all.digest.togglex[0].onoff
         sendEvent(name: 'switch', value: parent ? 'on' : 'off', isStateChange: true)
+        sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
 
         childDevices.each {
             childDevice ->
             def channel = channelNumber(childDevice.deviceNetworkId) as Integer
             def childState = body.payload.all.digest.togglex[channel].onoff
-            log "channel is $channel"
-            log "childState is $childState"
+            log "channel $channel:  $childState"
                 childDevice.sendEvent(name: 'switch', value: childState ? 'on' : 'off')
         }
     } else {
@@ -161,20 +160,20 @@ def log(msg) {
 }
 
 def initialize() {
-    log.debug 'initialize()'
+    log 'initialize()'
     if (!childDevices) {
         createChildDevices()
     }
+    refresh()
+    
+    log 'scheduling()'
+    unschedule(refresh)
+    runEvery1Minute(refresh)
 }
 
 def configure() {
-    log.debug 'configure()'
+    log 'configure()'
     initialize()
-}
-
-def poll() {
-    log.debug 'poll()'
-    refresh()
 }
 
 private channelNumber(String dni) {
