@@ -5,3 +5,4 @@ Hubitat Drivers for Meross Smart Plugs
 
 * MSS120 - Smart WiFi Plug
 * MSS620 - Smart WiFi Indoor/Outdoor Plug
+* MSS110 - Smart Plug Mini
