@@ -1,5 +1,5 @@
 # hubitat-meross
-Hubitat Drivers for Meross Smart Plugs
+[BETA] Hubitat Drivers for Meross Smart Plugs
 
 ## Currently Supports
 
