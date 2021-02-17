@@ -1,5 +1,9 @@
-# hubitat-meross
-[BETA] Hubitat Drivers for Meross Smart Plugs
+<span align="center">
+
+# Hubitat Meross
+**[BETA]** Unofficial Hubitat Drivers for Meross Smart Plugs
+
+</span>
 
 ## Currently Supports
 
@@ -14,6 +18,6 @@
 
 2. You will also have to obtain some information that the Meross mobile
    app uses in its HTTP request headers. See [How To Get Credentials](https://github.com/donavanbecker/homebridge-meross/wiki/Getting-Credentials) for more details.
-# Prior Art
+## Prior Art
 
 Based off [homebridge-meross](https://github.com/donavanbecker/homebridge-meross)
