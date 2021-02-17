@@ -40,6 +40,9 @@ metadata {
     preferences {
         section('Device Selection') {
             input('deviceIp', 'text', title: 'Device IP Address', description: '', required: true, defaultValue: '')
+            input('messageId', 'text', title: 'Message ID', description: '', required: true, defaultValue: '')
+            input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
+            input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
         }
     }
@@ -50,6 +53,11 @@ def getDriverVersion() {
 }
 
 def sendCommand(int onoff, int channel) {
+    if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
+        sendEvent(name: 'switch', value: 'offline', isStateChange: false)
+        log 'missing setting configuration'
+        return
+    }
     try {
         def hubAction = new hubitat.device.HubAction([
         method: 'POST',
@@ -58,9 +66,9 @@ def sendCommand(int onoff, int channel) {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{"togglex":{"onoff":' + onoff + ',"channel":' + channel + '}},"header":{"messageId":"926aabad9487c580d9c8821ecf2d704d","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"40fc38fc665fe340297e91907f842e3e","namespace":"Appliance.Control.ToggleX","triggerSrc":"iOSLocal","timestamp":1612399570,"payloadVersion":1}}'
+        body: '{"payload":{"togglex":{"onoff":' + onoff + ',"channel":' + channel + '}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.Control.ToggleX","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
     ])
-        log.debug hubAction
+        log hubAction
         return hubAction
     } catch (e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
@@ -69,6 +77,11 @@ def sendCommand(int onoff, int channel) {
 
 def refresh() {
     log.info('Refreshing')
+    if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
+        sendEvent(name: 'switch', value: 'offline', isStateChange: false)
+        log 'missing setting configuration'
+        return
+    }
     try {
         def hubAction = new hubitat.device.HubAction([
         method: 'POST',
@@ -77,9 +90,9 @@ def refresh() {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{},"header":{"messageId":"926aabad9487c580d9c8821ecf2d704d","method":"GET","from":"http://'+settings.deviceIp+'/config","sign":"40fc38fc665fe340297e91907f842e3e","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":1612399570,"payloadVersion":1}}'
+        body: '{"payload":{},"header":{"messageId":"'+settings.messageId+'","method":"GET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
     ])
-        log.debug hubAction
+        log hubAction
         return hubAction
     } catch (Exception e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
@@ -128,7 +141,7 @@ def componentRefresh(cd) {
 
 def updated() {
     log.info('Updated')
-    initialize();
+    initialize()
 }
 
 def parse(String description) {
@@ -136,10 +149,12 @@ def parse(String description) {
 
     def msg = parseLanMessage(description)
     def body = parseJson(msg.body)
+    log body
     if (body.payload.all) {
         def parent = body.payload.all.digest.togglex[0].onoff
         sendEvent(name: 'switch', value: parent ? 'on' : 'off', isStateChange: true)
         sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
+        sendEvent(name: 'model', value: body.payload.all.system.hardware.type, isStateChange: false)
 
         childDevices.each {
             childDevice ->
@@ -165,7 +180,7 @@ def initialize() {
         createChildDevices()
     }
     refresh()
-    
+
     log 'scheduling()'
     unschedule(refresh)
     runEvery1Minute(refresh)
