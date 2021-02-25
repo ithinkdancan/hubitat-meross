@@ -10,6 +10,7 @@
 * MSS120 - Smart WiFi Plug (2 Channel)
 * MSS620 - Smart WiFi Indoor/Outdoor Plug (2 Channel)
 * MSS110 - Smart Plug Mini
+* MSG200 - Smart WiFi Garage Door Opener
 
 ## Authorization & Configuration
 
