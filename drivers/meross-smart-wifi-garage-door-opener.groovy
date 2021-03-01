@@ -71,7 +71,7 @@ def sendCommand(int open) {
         body: '{"payload":{"state":{"open":' + open + ',"channel":' + settings.channel + ',"uuid":' + settings.uuid + '}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.GarageDoor.State","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
     ])
         log hubAction
-        runIn(5000, refresh())
+        // runIn(5000, refresh())
         return hubAction
     } catch (e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
