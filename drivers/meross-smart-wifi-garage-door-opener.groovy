@@ -52,10 +52,13 @@ def getDriverVersion() {
 
 def sendCommand(int open) {
     if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
-        sendEvent(name: 'switch', value: 'offline', isStateChange: false)
+        sendEvent(name: 'door', value: 'unknown', isStateChange: false)
         log 'missing setting configuration'
         return
     }
+
+    sendEvent(name: 'door', value: open ? 'opening' : 'closing', isStateChange: true)
+
     try {
         log 'do sendCommand'
         def hubAction = new hubitat.device.HubAction([
@@ -68,6 +71,7 @@ def sendCommand(int open) {
         body: '{"payload":{"state":{"open":' + open + ',"channel":' + settings.channel + ',"uuid":' + settings.uuid + '}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.GarageDoor.State","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
     ])
         log hubAction
+        runIn(5000, refresh())
         return hubAction
     } catch (e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
@@ -77,7 +81,7 @@ def sendCommand(int open) {
 def refresh() {
     log.info('Refreshing')
     if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
-        sendEvent(name: 'switch', value: 'offline', isStateChange: false)
+        sendEvent(name: 'door', value: 'unknown', isStateChange: false)
         log 'missing setting configuration'
         return
     }
@@ -124,6 +128,7 @@ def parse(String description) {
         log "channel is: $settings.channel"
         def state = body.payload.all.digest.garageDoor[settings.channel.intValue() - 1].open
         sendEvent(name: 'door', value: state ? 'open' : 'closed', isStateChange: true)
+        sendEvent(name: 'contact', value: state ? 'open' : 'closed', isStateChange: true)
         sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
         sendEvent(name: 'model', value: body.payload.all.system.hardware.type, isStateChange: false)
     } else {
