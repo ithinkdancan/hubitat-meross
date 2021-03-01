@@ -1,7 +1,7 @@
 <span align="center">
 
 # Hubitat Meross
-**[BETA]** Unofficial Hubitat Drivers for Meross Smart Plugs
+**[BETA]** Unofficial Hubitat Drivers for Meross Smart Devices
 
 </span>
 

@@ -26,6 +26,8 @@ metadata {
     ) {
         capability 'DoorControl'
         capability 'GarageDoorControl'
+        capability 'Actuator'
+        capability 'ContactSensor'
         capability 'Refresh'
 
         attribute 'model', 'string'
