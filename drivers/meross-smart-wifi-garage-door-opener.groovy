@@ -2,7 +2,7 @@
  * Meross Smart WiFi Garage Door Opener
  *
  * Author: Daniel Tijerina
- * Last updated: 2021-02-25
+ * Last updated: 2021-03-16
  *
  *
  * Licensed under the Apache License, Version 2.0 (the 'License'); you may not
@@ -68,7 +68,7 @@ def sendCommand(int open) {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{"state":{"open":' + open + ',"channel":' + settings.channel + ',"uuid":' + settings.uuid + '}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.GarageDoor.State","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
+        body: '{"payload":{"state":{"open":' + open + ',"channel":' + settings.channel + ',"uuid":"' + settings.uuid + '"}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.GarageDoor.State","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
     ])
         log hubAction
         // runIn(5000, refresh())
