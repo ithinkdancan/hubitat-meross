@@ -97,6 +97,10 @@ def refresh() {
             body: '{"payload":{},"header":{"messageId":"'+settings.messageId+'","method":"GET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
         ])
         log hubAction
+        runIn(20, refresh, [overwrite: false])
+        runIn(25, refresh, [overwrite: false])
+        runIn(30, refresh, [overwrite: false])
+        runIn(35, refresh, [overwrite: false])
         return hubAction
     } catch (Exception e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
@@ -127,8 +131,8 @@ def parse(String description) {
     if (body.payload.all) {
         log "channel is: $settings.channel"
         def state = body.payload.all.digest.garageDoor[settings.channel.intValue() - 1].open
-        sendEvent(name: 'door', value: state ? 'open' : 'closed', isStateChange: true)
-        sendEvent(name: 'contact', value: state ? 'open' : 'closed', isStateChange: true)
+        sendEvent(name: 'door', value: state ? 'open' : 'closed')
+        sendEvent(name: 'contact', value: state ? 'open' : 'closed')
         sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
         sendEvent(name: 'model', value: body.payload.all.system.hardware.type, isStateChange: false)
     } else {
