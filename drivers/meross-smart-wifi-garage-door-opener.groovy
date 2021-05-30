@@ -97,6 +97,10 @@ def refresh() {
             body: '{"payload":{},"header":{"messageId":"'+settings.messageId+'","method":"GET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
         ])
         log hubAction
+        runIn(20, refresh, [overwrite: false])
+        runIn(25, refresh, [overwrite: false])
+        runIn(30, refresh, [overwrite: false])
+        runIn(35, refresh, [overwrite: false])
         return hubAction
     } catch (Exception e) {
         log.debug "runCmd hit exception ${e} on ${hubAction}"
