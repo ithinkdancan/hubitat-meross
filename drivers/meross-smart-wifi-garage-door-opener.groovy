@@ -127,8 +127,8 @@ def parse(String description) {
     if (body.payload.all) {
         log "channel is: $settings.channel"
         def state = body.payload.all.digest.garageDoor[settings.channel.intValue() - 1].open
-        sendEvent(name: 'door', value: state ? 'open' : 'closed', isStateChange: true)
-        sendEvent(name: 'contact', value: state ? 'open' : 'closed', isStateChange: true)
+        sendEvent(name: 'door', value: state ? 'open' : 'closed')
+        sendEvent(name: 'contact', value: state ? 'open' : 'closed')
         sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
         sendEvent(name: 'model', value: body.payload.all.system.hardware.type, isStateChange: false)
     } else {
