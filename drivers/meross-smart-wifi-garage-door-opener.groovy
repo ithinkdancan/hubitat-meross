@@ -18,6 +18,8 @@
  * under the License.
  */
 
+import java.security.MessageDigest
+
 metadata {
     definition(
         name: 'Meross Smart WiFi Garage Door Opener',
@@ -41,6 +43,7 @@ metadata {
             input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
             input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
             input('uuid', 'text', title: 'UUID', description: '', required: true, defaultValue: '')
+            input('uuid', 'text', title: 'UUID', description: '', required: true, defaultValue: '')
             input('channel', 'number', title: 'Garage Door Port', description: '', required: true, defaultValue: 1)
             input('garageOpenCloseTime','number',title: 'Garage Open/Close time (in seconds)', description:'', required: true, defaultValue: 5)
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
@@ -52,8 +55,17 @@ def getDriverVersion() {
     1
 }
 
+def initialize() {
+    log 'Initializing Device'
+    refresh()
+
+    unschedule(refresh)
+    runEvery5Minutes(refresh)
+}
+
 def sendCommand(int open) {
-    def currentVersion = device.currentState('version').value.replace(".","").toInteger()
+    
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 0
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -82,9 +94,9 @@ def sendCommand(int open) {
     }
 }
 
+
 def refresh() {
-    
-    def currentVersion = device.currentState('version').value.replace(".","").toInteger()
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 0
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -114,12 +126,12 @@ def refresh() {
 }
 
 def open() {
-    log.info('Turning on')
+    log.info('Opening Garage')
     return sendCommand(1)
 }
 
 def close() {
-    log.info('Turning off')
+    log.info('Closing Garage')
     return sendCommand(0)
 }
 
@@ -152,18 +164,27 @@ def parse(String description) {
     }
 }
 
+def getSign(int stringLength = 16){
+    
+    // Generate a random string 
+    def chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    def randomString = new Random().with { (0..stringLength).collect { chars[ nextInt(chars.length() ) ] }.join()}    
+    
+    int currentTime = new Date().getTime() / 1000
+    messageId = MessageDigest.getInstance("MD5").digest((randomString + currentTime.toString()).bytes).encodeHex().toString()
+    sign = MessageDigest.getInstance("MD5").digest((messageId + settings.key + currentTime.toString()).bytes).encodeHex().toString()
+    
+    def requestData = [
+         CurrentTime: currentTime,
+         MessageId: messageId,
+         Sign: sign
+    ]
+    
+    return requestData
+}
+
 def log(msg) {
     if (DebugLogging) {
         log.debug(msg)
     }
 }
-
-def initialize() {
-    log 'initialize()'
-    refresh()
-
-    log 'scheduling()'
-    unschedule(refresh)
-    runEvery5Minutes(refresh)
-}
-
