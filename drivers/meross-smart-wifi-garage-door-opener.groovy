@@ -43,7 +43,6 @@ metadata {
             input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
             input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
             input('uuid', 'text', title: 'UUID', description: '', required: true, defaultValue: '')
-            input('uuid', 'text', title: 'UUID', description: '', required: true, defaultValue: '')
             input('channel', 'number', title: 'Garage Door Port', description: '', required: true, defaultValue: 1)
             input('garageOpenCloseTime','number',title: 'Garage Open/Close time (in seconds)', description:'', required: true, defaultValue: 5)
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
