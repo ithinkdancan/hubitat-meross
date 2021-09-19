@@ -29,7 +29,7 @@ metadata {
     ) {
         capability 'Actuator'
         capability 'Switch'
-        copability 'Dimmer'
+        ////capability 'Dimmer'
         capability 'Refresh'
         capability 'Sensor'
         capability 'Configuration'
@@ -39,6 +39,7 @@ metadata {
             input('deviceIp', 'text', title: 'Device IP Address', description: '', required: true, defaultValue: '')
             input('key', 'text', title: 'Key', description: 'Required for firmware version 3.2.3 and greater', required: false, defaultValue: '')
             input('messageId', 'text', title: 'Message ID', description: '', required: true, defaultValue: '')
+            input('uuid', 'text', title: 'Unique ID', description: '', required: true, defaultValue: '')
             input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
             input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
             input('dimmerLevel','number',title: 'Dimmer level', description:'', required: true, defaultValue: 75)
@@ -51,17 +52,14 @@ def getDriverVersion() {
     1
 }
 
-def initialize() {
-    log 'Initializing Device'
-    refresh()
-
-    unschedule(refresh)
-    runEvery5Minutes(refresh)
-}
-
 def sendCommand(int onoff, int channel) {
 
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 0
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 232
+
+    log.info("currentVersion: " + currentVersion)
+    log.info("settings: " + settings)
+    log.info("channel: " + channel)
+    log.info("onoff: " + onoff)
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -76,14 +74,34 @@ def sendCommand(int onoff, int channel) {
         def payloadData = currentVersion >= 323 ? getPayload() : [MessageId: settings.messageId, Sign: settings.sign, CurrentTime: settings.timestamp]
 
         def hubAction = new hubitat.device.HubAction([
-        method: 'POST',
-        path: '/config',
-        headers: [
-            'HOST': settings.deviceIp,
-            'Content-Type': 'application/json',
-        ],
-        body: '{"payload":{"togglex":{"onoff":' + onoff + ',"channel":' + channel + ',"uuid":"' + settings.uuid + '"}},"header":{"messageId":"'+payloadData.get('MessageId')+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+payloadData.get('Sign')+'","namespace":"Appliance.Control.ToggleX","triggerSrc":"iOSLocal","timestamp":' + payloadData.get('CurrentTime') + ',"payloadVersion":1' + ',"uuid":"' + settings.uuid + '"}}'
-    ])
+            method: 'POST',
+            path: '/config',
+            headers: [
+                'HOST': settings.deviceIp,
+                'Content-Type': 'application/json',
+            ],
+            body: """
+            {
+                "payload": {
+                    "togglex": {
+                        "onoff": ${onoff},
+                        "channel": ${channel}
+                    }
+                },
+                "header": {
+                    "messageId": "${payloadData.get('MessageId')}"",
+                    "method": "SET",
+                    "from": "http://${settings.deviceIp}/config",
+                    "timestamp": ${payloadData.get('CurrentTime')},
+                    "namespace": "Appliance.Control.ToggleX",
+                    "uuid": "${settings.uuid}",
+                    "sign": "${payloadData.get('Sign')}",
+                    "triggerSrc": "iOSLocal",
+                    "payloadVersion": 1
+                }
+            }
+            """
+        ])
         log hubAction
         return hubAction
     } catch (e) {
@@ -92,7 +110,7 @@ def sendCommand(int onoff, int channel) {
 }
 
 def refresh() {
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 0
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 232
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
