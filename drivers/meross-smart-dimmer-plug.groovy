@@ -4,7 +4,7 @@
  * Author: Todd Pike
  * Last updated: 2021-09-18
  *
- * Based on Smart Plug Mini by Daniel Tijerina
+ * Based on Smart Plug Mini by Daniel Tijerina with firmware update fix from coKaliszewski
  *
  * Licensed under the Apache License, Version 2.0 (the 'License'); you may not
  * use this file except in compliance with the License. You may obtain a copy
@@ -29,7 +29,10 @@ metadata {
     ) {
         capability 'Actuator'
         capability 'Switch'
-        ////capability 'Dimmer'
+        ////capability 'ChangeLevel'
+        ////capability 'IlluminanceMeasurement'
+        ////capability 'LightEffects'
+        ////capability 'SwitchLevel'
         capability 'Refresh'
         capability 'Sensor'
         capability 'Configuration'
@@ -54,7 +57,7 @@ def getDriverVersion() {
 
 def sendCommand(int onoff, int channel) {
 
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 232
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
 
     log.info("currentVersion: " + currentVersion)
     log.info("settings: " + settings)
@@ -110,7 +113,7 @@ def sendCommand(int onoff, int channel) {
 }
 
 def refresh() {
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 232
+    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -129,7 +132,21 @@ def refresh() {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{},"header":{"messageId":"'+payloadData.get('MessageId')+'","method":"GET","from":"http://'+settings.deviceIp+'/subscribe","sign":"'+ payloadData.get('Sign') +'","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":' + payloadData.get('CurrentTime') + ',"payloadVersion":1}}'
+        body: """
+        {
+            "payload": {},
+            "header": {
+                "messageId": "${payloadData.get('MessageId')}",
+                "method": "GET",
+                "from": "http://${settings.deviceIp}/config",
+                "timestamp": ${ payloadData.get('CurrentTime')},
+                "namespace": "Appliance.System.Online",
+                "sign": "${ payloadData.get('Sign')}",
+                "triggerSrc": "iOSLocal",
+                "payloadVersion": 1
+            }
+        }
+        """
     ])
         log.debug hubAction
         return hubAction
