@@ -19,6 +19,8 @@
  * under the License.
  */
 
+ import java.security.MessageDigest
+
 metadata {
     definition(
         name: 'Meross Smart Dimmer Plug',
@@ -35,9 +37,11 @@ metadata {
     preferences {
         section('Device Selection') {
             input('deviceIp', 'text', title: 'Device IP Address', description: '', required: true, defaultValue: '')
+            input('key', 'text', title: 'Key', description: 'Required for firmware version 3.2.3 and greater', required: false, defaultValue: '')
             input('messageId', 'text', title: 'Message ID', description: '', required: true, defaultValue: '')
             input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
             input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
+            input('dimmerLevel','number',title: 'Dimmer level', description:'', required: true, defaultValue: 75)
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
         }
     }
