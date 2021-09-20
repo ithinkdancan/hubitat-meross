@@ -19,7 +19,11 @@
  * under the License.
  */
 
- import java.security.MessageDigest
+import java.security.MessageDigest
+
+def version() { "v1.0" }
+
+def getDriverVersion() { 1 }
 
 metadata {
     definition(
@@ -51,18 +55,31 @@ metadata {
     }
 }
 
-def getDriverVersion() {
-    1
+def on() {
+    log.info('Turning on')
+    sendCommand(1, 0)
+}
+
+def off() {
+    log.info('Turning off')
+    sendCommand(0, 0)
+}
+
+def updated() {
+    log.info('Updated')
+    initialize()
 }
 
 def sendCommand(int onoff, int channel) {
 
     def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
 
-    log.info("currentVersion: " + currentVersion)
-    log.info("settings: " + settings)
-    log.info("channel: " + channel)
-    log.info("onoff: " + onoff)
+    log.info("""
+- currentVersion: ${currentVersion}
+- settings: ${settings}
+- channel: ${channel}
+- onoff: ${onoff}
+""")
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -76,37 +93,46 @@ def sendCommand(int onoff, int channel) {
     try {
         def payloadData = currentVersion >= 323 ? getPayload() : [MessageId: settings.messageId, Sign: settings.sign, CurrentTime: settings.timestamp]
 
-        def hubAction = new hubitat.device.HubAction([
-            method: 'POST',
-            path: '/config',
-            headers: [
-                'HOST': settings.deviceIp,
-                'Content-Type': 'application/json',
+        def postBody = [
+            payload: [
+                togglex: [
+                    onoff: onoff,
+                    channel: channel
+                ]
             ],
-            body: """
-            {
-                "payload": {
-                    "togglex": {
-                        "onoff": ${onoff},
-                        "channel": ${channel}
-                    }
-                },
-                "header": {
-                    "messageId": "${payloadData.get('MessageId')}"",
-                    "method": "SET",
-                    "from": "http://${settings.deviceIp}/config",
-                    "timestamp": ${payloadData.get('CurrentTime')},
-                    "namespace": "Appliance.Control.ToggleX",
-                    "uuid": "${settings.uuid}",
-                    "sign": "${payloadData.get('Sign')}",
-                    "triggerSrc": "iOSLocal",
-                    "payloadVersion": 1
-                }
+            header: [
+                messageId: "${payloadData.get('MessageId')}",
+                method: "SET",
+                from: "http://${settings.deviceIp}/config",
+                timestamp: ${payloadData.get('CurrentTime')},
+                namespace: "Appliance.Control.ToggleX",
+                uuid: "${settings.uuid}",
+                sign: "${payloadData.get('Sign')}",
+                triggerSrc: "iOSLocal",
+                payloadVersion: 1
+            ]
+        ]
+
+        def params = [
+            uri: "http://${settings.deviceIp}",
+            path: "/config",
+            contentType: "application/json",
+            body: postBody,
+            textParser: true
+        ]
+
+        httpPost(params) { response ->
+            if (response.status != 200) {
+                log.error("Received HTTP error ${response.status} when seeting light to ${onoff}")
+                success = false
             }
-            """
-        ])
-        log hubAction
-        return hubAction
+            else {
+                log.info("Light successfully set to ${onoff}")
+                success = true
+            }
+        }
+
+        return null
     } catch (e) {
         log "runCmd hit exception ${e} on ${hubAction}"
     }
@@ -153,21 +179,6 @@ def refresh() {
     } catch (Exception e) {
         log "runCmd hit exception ${e} on ${hubAction}"
     }
-}
-
-def on() {
-    log.info('Turning on')
-    return sendCommand(1, 0)
-}
-
-def off() {
-    log.info('Turning off')
-    return sendCommand(0, 0)
-}
-
-def updated() {
-    log.info('Updated')
-    initialize()
 }
 
 def parse(String description) {
