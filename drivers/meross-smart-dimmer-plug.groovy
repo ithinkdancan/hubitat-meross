@@ -21,9 +21,7 @@
 
 import java.security.MessageDigest
 
-def version() { "v1.0" }
-
-def getDriverVersion() { 1 }
+////def version() { "v1.0" }
 
 metadata {
     definition(
@@ -31,14 +29,14 @@ metadata {
         namespace: 'bobted',
         author: 'Todd Pike'
     ) {
-        capability 'Actuator'
+        ////capability 'Actuator'
         capability 'Switch'
         ////capability 'ChangeLevel'
         ////capability 'IlluminanceMeasurement'
         ////capability 'LightEffects'
         ////capability 'SwitchLevel'
         capability 'Refresh'
-        capability 'Sensor'
+        ////capability 'Sensor'
         capability 'Configuration'
     }
     preferences {
@@ -53,6 +51,10 @@ metadata {
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
         }
     }
+}
+
+def getDriverVersion() {
+    1
 }
 
 def on() {
@@ -71,15 +73,7 @@ def updated() {
 }
 
 def sendCommand(int onoff, int channel) {
-
     def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
-
-    log.info("""
-- currentVersion: ${currentVersion}
-- settings: ${settings}
-- channel: ${channel}
-- onoff: ${onoff}
-""")
 
     // Firmware version 3.2.3 and greater require different data for request
     if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
@@ -104,7 +98,7 @@ def sendCommand(int onoff, int channel) {
                 messageId: "${payloadData.get('MessageId')}",
                 method: "SET",
                 from: "http://${settings.deviceIp}/config",
-                timestamp: ${payloadData.get('CurrentTime')},
+                timestamp: payloadData.get('CurrentTime'),
                 namespace: "Appliance.Control.ToggleX",
                 uuid: "${settings.uuid}",
                 sign: "${payloadData.get('Sign')}",
@@ -118,24 +112,19 @@ def sendCommand(int onoff, int channel) {
             path: "/config",
             contentType: "application/json",
             body: postBody,
-            textParser: true
+            headers: [Connection: "keep-alive"]
         ]
 
-        httpPost(params) { response ->
-            if (response.status != 200) {
-                log.error("Received HTTP error ${response.status} when seeting light to ${onoff}")
-                success = false
-            }
-            else {
-                log.info("Light successfully set to ${onoff}")
-                success = true
-            }
-        }
+        asynchttpPost("postResponse", params, null)
 
-        return null
     } catch (e) {
-        log "runCmd hit exception ${e} on ${hubAction}"
+        log "sendCommand hit exception ${e}"
     }
+}
+
+def postResponse(resp, data) {
+    log("post response = ${resp.getStatus()}")
+    log("post response data = ${resp.data}")
 }
 
 def refresh() {
@@ -151,33 +140,33 @@ def refresh() {
     try {
         def payloadData = currentVersion >= 323 ? getPayload() : [MessageId: settings.messageId, Sign: settings.sign, CurrentTime: settings.timestamp]
 
-        def hubAction = new hubitat.device.HubAction([
-        method: 'POST',
-        path: '/config',
-        headers: [
-            'HOST': settings.deviceIp,
-            'Content-Type': 'application/json',
-        ],
-        body: """
-        {
-            "payload": {},
-            "header": {
-                "messageId": "${payloadData.get('MessageId')}",
-                "method": "GET",
-                "from": "http://${settings.deviceIp}/config",
-                "timestamp": ${ payloadData.get('CurrentTime')},
-                "namespace": "Appliance.System.Online",
-                "sign": "${ payloadData.get('Sign')}",
-                "triggerSrc": "iOSLocal",
-                "payloadVersion": 1
-            }
-        }
-        """
-    ])
-        log.debug hubAction
-        return hubAction
+        def postBody = [
+            payload: [ ],
+            header: [
+                messageId: "${payloadData.get('MessageId')}",
+                method: "GET",
+                from: "http://${settings.deviceIp}/config",
+                timestamp: payloadData.get('CurrentTime'),
+                namespace: "Appliance.Control.Online",
+                sign: "${payloadData.get('Sign')}",
+                triggerSrc: "iOSLocal",
+                payloadVersion: 1
+            ]
+        ]
+
+        def params = [
+            uri: "http://${settings.deviceIp}",
+            path: "/config",
+            contentType: "application/json",
+            body: postBody,
+            headers: [Connection: "keep-alive"]
+        ]
+
+        log.info("REFRESH BODY:\n${postBody}")
+
+        asynchttpPost("postResponse", params, null)
     } catch (Exception e) {
-        log "runCmd hit exception ${e} on ${hubAction}"
+        log "refresh hit exception ${e} on ${hubAction}"
     }
 }
 
