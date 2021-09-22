@@ -32,7 +32,10 @@ metadata {
         capability 'Refresh'
         capability 'Configuration'
 
-        command 'Toggle'
+        command 'toggle'
+
+        attribute 'level', 'number'
+        attribute 'capacity', 'number'
     }
     preferences {
         section('Device Selection') {
@@ -83,6 +86,8 @@ def setLevel(level, duration) {
 }
 
 def setLevel(level) {
+    log.info("Setting level to ${level}")
+
     if (!settings.deviceIp || !settings.uuid || !settings.key) {
         sendEvent(name: 'switch', value: 'offline', isStateChange: false)
         log.warn('missing setting configuration')
@@ -139,6 +144,8 @@ def setLevelRespons(resp, data) {
     }
 
     sendEvent(name: 'level', value: level, isStateChange: true)
+
+    runInMillis(1000, 'refresh')
 }
 
 def sendCommand(int onoff, int channel) {
@@ -198,6 +205,8 @@ def onoffResponse(resp, data) {
     }
 
     sendEvent(name: 'switch', value: state, isStateChange: true)
+
+    runInMillis(1000, 'refresh')
 }
 
 def refresh() {
@@ -271,7 +280,7 @@ def parse(String description) {
 
         def digest = msg.payload.all.digest
         def light = digest.light
-        sendEvent(name: 'luminance', value: light.luminance, isStateChange: false)
+        sendEvent(name: 'level', value: light.luminance, isStateChange: false)
         sendEvent(name: 'capacity', value: light.capacity, isStateChange: false)
 
         def status = digest.togglex[0]
