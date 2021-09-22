@@ -62,16 +62,6 @@ def off() {
     sendCommand(0, 0)
 }
 
-def updated() {
-    log.info('Updated')
-    initialize()
-}
-
-def setLevel(level, duration) {
-    sendEvent(name: "level", value: level.toInteger())
-    sendEvent(name: "duration", value: duration.toInteger())
-}
-
 def toggle() {
     log "toggling"
 
@@ -81,6 +71,74 @@ def toggle() {
     else {
         on()
     }
+}
+
+def updated() {
+    log.info('Updated')
+    initialize()
+}
+
+def setLevel(level, duration) {
+    setLevel(level)
+}
+
+def setLevel(level) {
+    if (!settings.deviceIp || !settings.uuid || !settings.key) {
+        sendEvent(name: 'switch', value: 'offline', isStateChange: false)
+        log.warn('missing setting configuration')
+        return
+    }
+
+    try {
+        def payloadData = getPayload()
+
+        def postBody = [
+            payload: [
+                light: [
+                    channel: 0,
+                    luminance: level,
+                    capacity: 4
+                ]
+            ],
+            header: [
+                messageId: "${payloadData.get('MessageId')}",
+                method: "SET",
+                from: "http://${settings.deviceIp}/config",
+                timestamp: payloadData.get('CurrentTime'),
+                namespace: "Appliance.Control.Light",
+                uuid: "${settings.uuid}",
+                sign: "${payloadData.get('Sign')}",
+                triggerSrc: "hubitat",
+                payloadVersion: 1
+            ]
+        ]
+
+        def params = [
+            uri: "http://${settings.deviceIp}",
+            path: "/config",
+            contentType: "application/json",
+            body: postBody,
+            headers: [Connection: "keep-alive"]
+        ]
+
+        def callbackData = [:]
+        callbackData.put(payloadData.get('MessageId'), level)
+        asynchttpPost("setLevelRespons", params, callbackData)
+    } catch (e) {
+        log.error "setLevel hit an exception '${e}'"
+    }
+}
+
+def setLevelRespons(resp, data) {
+    def response = new groovy.json.JsonSlurper().parseText(resp.data)
+    def level = data[response.header.messageId]
+
+    if (resp.getStatus() != 200) {
+        log.error "Received status code of '${resp.getStatus()}'. Could not set state to '${level}'."
+        return
+    }
+
+    sendEvent(name: 'level', value: level, isStateChange: true)
 }
 
 def sendCommand(int onoff, int channel) {
@@ -123,14 +181,13 @@ def sendCommand(int onoff, int channel) {
 
         def callbackData = [:]
         callbackData.put(payloadData.get('MessageId'), onoff)
-        asynchttpPost("postResponse", params, callbackData)
-
+        asynchttpPost("onoffResponse", params, callbackData)
     } catch (e) {
-        log "sendCommand hit exception ${e}"
+        log.error "sendCommand hit exception '${e}'"
     }
 }
 
-def postResponse(resp, data) {
+def onoffResponse(resp, data) {
     def response = new groovy.json.JsonSlurper().parseText(resp.data)
     def onoff = data[response.header.messageId]
 
@@ -160,7 +217,7 @@ def refresh() {
                 method: "GET",
                 from: "http://${settings.deviceIp}/config",
                 timestamp: payloadData.get('CurrentTime'),
-                namespace: "Appliance.Control.Online",
+                namespace: "Appliance.System.All",
                 sign: "${payloadData.get('Sign')}",
                 triggerSrc: "hubitat",
                 payloadVersion: 1
@@ -179,14 +236,14 @@ def refresh() {
         callbackData.put("messageId", payloadData.get('MessageId'))
         asynchttpPost("refreshResponse", params, callbackData)
     } catch (Exception e) {
-        log "refresh hit exception ${e} on ${hubAction}"
+        log.error "refresh hit exception '${e}'"
     }
 }
 
 def refreshResponse(resp, data) {
     def response = new groovy.json.JsonSlurper().parseText(resp.data)
     def messageId = response.header.messageId
-    def callbackId = data.messageId
+    def callbackId = data["messageId"]
 
     if (messageId != callbackId) {
         log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
