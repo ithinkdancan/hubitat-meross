@@ -21,28 +21,23 @@
 
 import java.security.MessageDigest
 
-////def version() { "v1.0" }
-
 metadata {
     definition(
         name: 'Meross Smart Dimmer Plug',
         namespace: 'bobted',
         author: 'Todd Pike'
     ) {
-        ////capability 'Actuator'
         capability 'Switch'
-        ////capability 'ChangeLevel'
-        ////capability 'IlluminanceMeasurement'
-        ////capability 'LightEffects'
-        ////capability 'SwitchLevel'
+        capability 'SwitchLevel'
         capability 'Refresh'
-        ////capability 'Sensor'
         capability 'Configuration'
+
+        command 'Toggle'
     }
     preferences {
         section('Device Selection') {
             input('deviceIp', 'text', title: 'Device IP Address', description: '', required: true, defaultValue: '')
-            input('key', 'text', title: 'Key', description: 'Required for firmware version 3.2.3 and greater', required: false, defaultValue: '')
+            input('key', 'text', title: 'Key', description: 'Encryption key for generating message payload', required: false, defaultValue: '')
             input('messageId', 'text', title: 'Message ID', description: '', required: true, defaultValue: '')
             input('uuid', 'text', title: 'Unique ID', description: '', required: true, defaultValue: '')
             input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
@@ -72,20 +67,31 @@ def updated() {
     initialize()
 }
 
-def sendCommand(int onoff, int channel) {
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
+def setLevel(level, duration) {
+    sendEvent(name: "level", value: level.toInteger())
+    sendEvent(name: "duration", value: duration.toInteger())
+}
 
-    // Firmware version 3.2.3 and greater require different data for request
-    if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
+def toggle() {
+    log "toggling"
+
+    if (device.currentValue("switch") == "on") {
+        off()
+    }
+    else {
+        on()
+    }
+}
+
+def sendCommand(int onoff, int channel) {
+    if (!settings.deviceIp || !settings.uuid || !settings.key) {
         sendEvent(name: 'switch', value: 'offline', isStateChange: false)
         log.warn('missing setting configuration')
         return
     }
 
-    sendEvent(name: 'switch', value: onoff ? 'on' : 'off', isStateChange: true)
-
     try {
-        def payloadData = currentVersion >= 323 ? getPayload() : [MessageId: settings.messageId, Sign: settings.sign, CurrentTime: settings.timestamp]
+        def payloadData = getPayload()
 
         def postBody = [
             payload: [
@@ -102,7 +108,7 @@ def sendCommand(int onoff, int channel) {
                 namespace: "Appliance.Control.ToggleX",
                 uuid: "${settings.uuid}",
                 sign: "${payloadData.get('Sign')}",
-                triggerSrc: "iOSLocal",
+                triggerSrc: "hubitat",
                 payloadVersion: 1
             ]
         ]
@@ -115,7 +121,9 @@ def sendCommand(int onoff, int channel) {
             headers: [Connection: "keep-alive"]
         ]
 
-        asynchttpPost("postResponse", params, null)
+        def callbackData = [:]
+        callbackData.put(payloadData.get('MessageId'), onoff)
+        asynchttpPost("postResponse", params, callbackData)
 
     } catch (e) {
         log "sendCommand hit exception ${e}"
@@ -123,22 +131,27 @@ def sendCommand(int onoff, int channel) {
 }
 
 def postResponse(resp, data) {
-    log("post response = ${resp.getStatus()}")
-    log("post response data = ${resp.data}")
+    def response = new groovy.json.JsonSlurper().parseText(resp.data)
+    def onoff = data[response.header.messageId]
+
+    def state = onoff ? 'on' : 'off'
+    if (resp.getStatus() != 200) {
+        log.error "Received status code of '${resp.getStatus()}'. Could not set state to '${state}'."
+        return
+    }
+
+    sendEvent(name: 'switch', value: state, isStateChange: true)
 }
 
 def refresh() {
-    def currentVersion = device.currentState('version')?.value ? device.currentState('version')?.value.replace(".","").toInteger() : 323
-
-    // Firmware version 3.2.3 and greater require different data for request
-    if (!settings.deviceIp || !settings.uuid || (currentVersion >= 323 && !settings.key) || (currentVersion < 323 && (!settings.messageId || !settings.sign || !settings.timestamp))) {
+    if (!settings.deviceIp || !settings.uuid || !settings.key) {
         sendEvent(name: 'switch', value: 'offline', isStateChange: false)
         log 'missing setting configuration'
         return
     }
 
     try {
-        def payloadData = currentVersion >= 323 ? getPayload() : [MessageId: settings.messageId, Sign: settings.sign, CurrentTime: settings.timestamp]
+        def payloadData = getPayload()
 
         def postBody = [
             payload: [ ],
@@ -149,7 +162,7 @@ def refresh() {
                 timestamp: payloadData.get('CurrentTime'),
                 namespace: "Appliance.Control.Online",
                 sign: "${payloadData.get('Sign')}",
-                triggerSrc: "iOSLocal",
+                triggerSrc: "hubitat",
                 payloadVersion: 1
             ]
         ]
@@ -162,39 +175,57 @@ def refresh() {
             headers: [Connection: "keep-alive"]
         ]
 
-        log.info("REFRESH BODY:\n${postBody}")
-
-        asynchttpPost("postResponse", params, null)
+        def callbackData = [:]
+        callbackData.put("messageId", payloadData.get('MessageId'))
+        asynchttpPost("refreshResponse", params, callbackData)
     } catch (Exception e) {
         log "refresh hit exception ${e} on ${hubAction}"
     }
 }
 
-def parse(String description) {
-    log "description is: $description"
+def refreshResponse(resp, data) {
+    def response = new groovy.json.JsonSlurper().parseText(resp.data)
+    def messageId = response.header.messageId
+    def callbackId = data.messageId
 
-    def msg = parseLanMessage(description)
-    def body = parseJson(msg.body)
-
-    if (msg.status != 200) {
-         log.error("Request failed")
-         return
+    if (messageId != callbackId) {
+        log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
+        return
     }
 
-    if(body.header.method == "SETACK") return
+    parse(resp.data)
+}
 
-    if (body.payload.all) {
-        def parent = body.payload.all.digest.togglex[0].onoff
-        sendEvent(name: 'switch', value: parent ? 'on' : 'off', isStateChange: true)
-        sendEvent(name: 'version', value: body.payload.all.system.firmware.version, isStateChange: false)
-        sendEvent(name: 'model', value: body.payload.all.system.hardware.type, isStateChange: false)
+def parse(String description) {
+    def msg = new groovy.json.JsonSlurper().parseText(description)
+
+    if (msg.header.method == "SETACK") return
+
+    if (msg.payload.all) {
+        def system = msg.payload.all.system
+        def hardware = system.hardware
+        sendEvent(name: 'model', value: hardware.type, isStateChange: false)
+        sendEvent(name: 'uuid', value: hardware.uuid, isStateChange: false)
+        sendEvent(name: 'mac', value: hardware.macAddress, isStateChange: false)
+
+        def firmware = system.firmware
+        sendEvent(name: 'firmware', value: firmware.version, isStateChange: false)
+        sendEvent(name: 'userId', value: firmware.userId, isStateChange: false)
+
+        def digest = msg.payload.all.digest
+        def light = digest.light
+        sendEvent(name: 'luminance', value: light.luminance, isStateChange: false)
+        sendEvent(name: 'capacity', value: light.capacity, isStateChange: false)
+
+        def status = digest.togglex[0]
+        sendEvent(name: 'modified', value: status.lmTime, isStateChange: false)
+        sendEvent(name: 'switch', value: status.onoff ? 'on' : 'off', isStateChange: true)
     } else {
-        //refresh()
         log.error ("Request failed")
     }
 }
 
-def getPayload(int stringLength = 16){
+def getPayload(int stringLength = 16) {
 
     // Generate a random string
     def chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
