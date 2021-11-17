@@ -277,35 +277,34 @@ def parse(String description) {
     if (msg.payload.all) {
         def system = msg.payload.all.system
         def hardware = system.hardware
-        sendEventOnChange(name: 'model', value: hardware.type)
-        sendEventOnChange(name: 'device uuid', value: hardware.uuid)
-        sendEventOnChange(name: 'mac', value: hardware.macAddress)
+        sendEventOnChange('model', hardware.type)
+        sendEventOnChange('device uuid', hardware.uuid)
+        sendEventOnChange('mac', hardware.macAddress)
 
         def firmware = system.firmware
-        sendEventOnChange(name: 'firmware', value: firmware.version)
-        sendEventOnChange(name: 'userId', value: firmware.userId)
+        sendEventOnChange('firmware', firmware.version)
+        sendEventOnChange('userId', firmware.userId)
 
         def digest = msg.payload.all.digest
         def light = digest.light
-        sendEventOnChange(name: 'level', value: light.luminance)
-        sendEventOnChange(name: 'capacity', value: light.capacity)
+        sendEventOnChange('level', light.luminance)
+        sendEventOnChange('capacity', light.capacity)
 
         def status = digest.togglex[0]
-        sendEventOnChange(name: 'modified', value: status.lmTime)
-        sendEventOnChange(name: 'switch', value: status.onoff ? 'on' : 'off')
+        sendEventOnChange('modified', status.lmTime)
+        sendEventOnChange('switch', status.onoff ? 'on' : 'off')
     } else {
         log.error ("Request failed")
     }
 }
 
-def sendEventOnChange(String name, String value) {
+def sendEventOnChange(String name, value) {
     def current = getDataValue(name)
     if (current != value) {
         sendEvent(name: name, value: value, isStateChange: true)
     }
-    else {
-        updateDataValue(name: name, value: value)
-    }
+
+    updateDataValue(name, (value as String))
 }
 
 def getPayload(int stringLength = 16) {
