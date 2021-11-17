@@ -36,6 +36,13 @@ metadata {
 
         attribute 'level', 'number'
         attribute 'capacity', 'number'
+
+        attribute 'model', 'string'
+        attribute 'device uuid', 'string'
+        attribute 'mac', 'string'
+        attribute 'firmware', 'string'
+        attribute 'userid', 'string'
+        attribute 'modified', 'string'
     }
     preferences {
         section('Device Selection') {
@@ -206,7 +213,7 @@ def onoffResponse(resp, data) {
 
     sendEvent(name: 'switch', value: state, isStateChange: true)
 
-    runInMillis(1000, 'refresh')
+    runInMillis(500, 'refresh')
 }
 
 def refresh() {
@@ -270,24 +277,34 @@ def parse(String description) {
     if (msg.payload.all) {
         def system = msg.payload.all.system
         def hardware = system.hardware
-        sendEvent(name: 'model', value: hardware.type, isStateChange: false)
-        sendEvent(name: 'uuid', value: hardware.uuid, isStateChange: false)
-        sendEvent(name: 'mac', value: hardware.macAddress, isStateChange: false)
+        sendEventOnChange(name: 'model', value: hardware.type)
+        sendEventOnChange(name: 'device uuid', value: hardware.uuid)
+        sendEventOnChange(name: 'mac', value: hardware.macAddress)
 
         def firmware = system.firmware
-        sendEvent(name: 'firmware', value: firmware.version, isStateChange: false)
-        sendEvent(name: 'userId', value: firmware.userId, isStateChange: false)
+        sendEventOnChange(name: 'firmware', value: firmware.version)
+        sendEventOnChange(name: 'userId', value: firmware.userId)
 
         def digest = msg.payload.all.digest
         def light = digest.light
-        sendEvent(name: 'level', value: light.luminance, isStateChange: false)
-        sendEvent(name: 'capacity', value: light.capacity, isStateChange: false)
+        sendEventOnChange(name: 'level', value: light.luminance)
+        sendEventOnChange(name: 'capacity', value: light.capacity)
 
         def status = digest.togglex[0]
-        sendEvent(name: 'modified', value: status.lmTime, isStateChange: false)
-        sendEvent(name: 'switch', value: status.onoff ? 'on' : 'off', isStateChange: true)
+        sendEventOnChange(name: 'modified', value: status.lmTime)
+        sendEventOnChange(name: 'switch', value: status.onoff ? 'on' : 'off')
     } else {
         log.error ("Request failed")
+    }
+}
+
+def sendEventOnChange(String name, String value) {
+    def current = getDataValue(name)
+    if (current != value) {
+        sendEvent(name: name, value: value, isStateChange: true)
+    }
+    else {
+        updateDataValue(name: name, value: value)
     }
 }
 
