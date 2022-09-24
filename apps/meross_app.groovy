@@ -2,7 +2,7 @@ import groovy.json.*
 import java.net.URLEncoder
 import java.security.MessageDigest
 
-def appVersion() { return "1.3.0" }
+def appVersion() { return "0.1.0" }
 
 definition(
 	name: "Meross Garage Door Manager",
