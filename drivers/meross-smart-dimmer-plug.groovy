@@ -257,16 +257,25 @@ def refresh() {
 }
 
 def refreshResponse(resp, data) {
-    def response = new groovy.json.JsonSlurper().parseText(resp.data)
-    def messageId = response.header.messageId
-    def callbackId = data["messageId"]
+    try {
+        if (resp?.data?.trim()) {
+            def response = new groovy.json.JsonSlurper().parseText(resp.data)
+            def messageId = response.header.messageId
+            def callbackId = data["messageId"]
 
-    if (messageId != callbackId) {
-        log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
-        return
+            if (messageId != callbackId) {
+                log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
+                return
+            }
+
+            parse(resp.data)
+        }
     }
-
-    parse(resp.data)
+    catch (Exception e) {
+        if (DebugLogging) {
+            log.error "Error in response: '${e}'"
+        }
+    }
 }
 
 def parse(String description) {
