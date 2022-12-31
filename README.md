@@ -8,19 +8,11 @@
 
 ## Currently Supports
 
-<<<<<<< HEAD
-* MSS120 - Smart WiFi Plug (2 Channel)
-* MSS620 - Smart WiFi Indoor/Outdoor Plug (2 Channel)
-* MSS110 - Smart Plug Mini
-* MSG200 - Smart WiFi Garage Door Opener
-* MDP100 - Smart WiFi Indoor/Outdoor Dimmer Plug
-=======
 - MSS120 - Smart WiFi Plug (2 Channel)
 - MSS620 - Smart WiFi Indoor/Outdoor Plug (2 Channel)
 - MSS110 - Smart Plug Mini
 - MSG200 - Smart WiFi Garage Door Opener
 - MDP100 - Smart WiFi Indoor/Outdoor Dimmer Plug
->>>>>>> 054a7c8ac0a6bfd0e8886c5afbdedf9027c822d3
 
 ## Authorization & Configuration
 
