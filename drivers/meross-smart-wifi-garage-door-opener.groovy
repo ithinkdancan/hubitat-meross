@@ -2,7 +2,7 @@
  * Meross Smart WiFi Garage Door Opener
  *
  * Author: Daniel Tijerina
- * Last updated: 2021-03-16
+ * Last updated: 2021-09-26
  *
  *
  * Licensed under the Apache License, Version 2.0 (the 'License'); you may not
