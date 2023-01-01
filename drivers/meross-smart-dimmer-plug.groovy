@@ -36,6 +36,13 @@ metadata {
 
         attribute 'level', 'number'
         attribute 'capacity', 'number'
+
+        attribute 'model', 'string'
+        attribute 'device uuid', 'string'
+        attribute 'mac', 'string'
+        attribute 'firmware', 'string'
+        attribute 'userid', 'string'
+        attribute 'modified', 'string'
     }
     preferences {
         section('Device Selection') {
@@ -206,7 +213,7 @@ def onoffResponse(resp, data) {
 
     sendEvent(name: 'switch', value: state, isStateChange: true)
 
-    runInMillis(1000, 'refresh')
+    runInMillis(500, 'refresh')
 }
 
 def refresh() {
@@ -250,16 +257,25 @@ def refresh() {
 }
 
 def refreshResponse(resp, data) {
-    def response = new groovy.json.JsonSlurper().parseText(resp.data)
-    def messageId = response.header.messageId
-    def callbackId = data["messageId"]
+    try {
+        if (resp?.data?.trim()) {
+            def response = new groovy.json.JsonSlurper().parseText(resp.data)
+            def messageId = response.header.messageId
+            def callbackId = data["messageId"]
 
-    if (messageId != callbackId) {
-        log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
-        return
+            if (messageId != callbackId) {
+                log.error "MessageId in refresh callback, '${callbackId}', does not match request, '${messageId}'. Skipping parse of refresh response."
+                return
+            }
+
+            parse(resp.data)
+        }
     }
-
-    parse(resp.data)
+    catch (Exception e) {
+        if (DebugLogging) {
+            log.error "Error in response: '${e}'"
+        }
+    }
 }
 
 def parse(String description) {
@@ -270,25 +286,34 @@ def parse(String description) {
     if (msg.payload.all) {
         def system = msg.payload.all.system
         def hardware = system.hardware
-        sendEvent(name: 'model', value: hardware.type, isStateChange: false)
-        sendEvent(name: 'uuid', value: hardware.uuid, isStateChange: false)
-        sendEvent(name: 'mac', value: hardware.macAddress, isStateChange: false)
+        sendEventOnChange('model', hardware.type)
+        sendEventOnChange('device uuid', hardware.uuid)
+        sendEventOnChange('mac', hardware.macAddress)
 
         def firmware = system.firmware
-        sendEvent(name: 'firmware', value: firmware.version, isStateChange: false)
-        sendEvent(name: 'userId', value: firmware.userId, isStateChange: false)
+        sendEventOnChange('firmware', firmware.version)
+        sendEventOnChange('userId', firmware.userId)
 
         def digest = msg.payload.all.digest
         def light = digest.light
-        sendEvent(name: 'level', value: light.luminance, isStateChange: false)
-        sendEvent(name: 'capacity', value: light.capacity, isStateChange: false)
+        sendEventOnChange('level', light.luminance)
+        sendEventOnChange('capacity', light.capacity)
 
         def status = digest.togglex[0]
-        sendEvent(name: 'modified', value: status.lmTime, isStateChange: false)
-        sendEvent(name: 'switch', value: status.onoff ? 'on' : 'off', isStateChange: true)
+        sendEventOnChange('modified', status.lmTime)
+        sendEventOnChange('switch', status.onoff ? 'on' : 'off')
     } else {
         log.error ("Request failed")
     }
+}
+
+def sendEventOnChange(String name, value) {
+    def current = getDataValue(name)
+    if (current != value) {
+        sendEvent(name: name, value: value, isStateChange: true)
+    }
+
+    updateDataValue(name, (value as String))
 }
 
 def getPayload(int stringLength = 16) {
