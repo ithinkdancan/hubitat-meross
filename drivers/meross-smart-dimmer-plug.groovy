@@ -2,7 +2,7 @@
  * Meross Smart Dimmer Plug
  *
  * Author: Todd Pike
- * Last updated: 2021-09-18
+ * Last updated: 2023-01-02
  *
  * Based on Smart Plug Mini by Daniel Tijerina with firmware update fix from coKaliszewski
  *
@@ -202,16 +202,25 @@ def sendCommand(int onoff, int channel) {
 }
 
 def onoffResponse(resp, data) {
-    def response = new groovy.json.JsonSlurper().parseText(resp.data)
-    def onoff = data[response.header.messageId]
+    try {
+        if (resp?.data?.trim()) {
+            def response = new groovy.json.JsonSlurper().parseText(resp.data)
+            def onoff = data[response.header.messageId]
 
-    def state = onoff ? 'on' : 'off'
-    if (resp.getStatus() != 200) {
-        log.error "Received status code of '${resp.getStatus()}'. Could not set state to '${state}'."
-        return
+            def state = onoff ? 'on' : 'off'
+            if (resp.getStatus() != 200) {
+                log.error "Received status code of '${resp.getStatus()}'. Could not set state to '${state}'."
+                return
+            }
+
+            sendEvent(name: 'switch', value: state, isStateChange: true)
+        }
     }
-
-    sendEvent(name: 'switch', value: state, isStateChange: true)
+    catch (Exception e) {
+        if (DebugLogging) {
+            log.error "Error in response: '${e}'"
+        }
+    }
 
     runInMillis(500, 'refresh')
 }
