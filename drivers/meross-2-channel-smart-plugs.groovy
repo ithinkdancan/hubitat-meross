@@ -18,6 +18,8 @@
  * under the License.
  */
 
+import java.security.MessageDigest
+
 metadata {
     definition(
         name: 'Meross 2 Channel Smart Plug',
@@ -40,9 +42,7 @@ metadata {
     preferences {
         section('Device Selection') {
             input('deviceIp', 'text', title: 'Device IP Address', description: '', required: true, defaultValue: '')
-            input('messageId', 'text', title: 'Message ID', description: '', required: true, defaultValue: '')
-            input('timestamp', 'number', title: 'Timestamp', description: '', required: true, defaultValue: '')
-            input('sign', 'text', title: 'Sign', description: '', required: true, defaultValue: '')
+            input('key', 'text', title: 'Key', description: 'Key from login.py', required: true, defaultValue: '')
             input('DebugLogging', 'bool', title: 'Enable debug logging', defaultValue: true)
         }
     }
@@ -53,12 +53,13 @@ def getDriverVersion() {
 }
 
 def sendCommand(int onoff, int channel) {
-    if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
+    if (!settings.deviceIp || !settings.key) {
         sendEvent(name: 'switch', value: 'offline', isStateChange: false)
-        log 'missing setting configuration'
+        log.warn('missing setting configuration')
         return
     }
     try {
+        def payloadData = getSign()
         def hubAction = new hubitat.device.HubAction([
         method: 'POST',
         path: '/config',
@@ -66,23 +67,27 @@ def sendCommand(int onoff, int channel) {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{"togglex":{"onoff":' + onoff + ',"channel":' + channel + '}},"header":{"messageId":"'+settings.messageId+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace":"Appliance.Control.ToggleX","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
+        body: '{"payload":{"togglex":{"onoff":' + onoff + ',"channel":' + channel + '}},"header":{"messageId":"'+payloadData.get('MessageId')+'","method":"SET","from":"http://'+settings.deviceIp+'/config","sign":"'+payloadData.get('Sign')+'","namespace":"Appliance.Control.ToggleX","triggerSrc":"iOSLocal","timestamp":' +  payloadData.get('CurrentTime') + ',"payloadVersion":1}}'
     ])
         log hubAction
+        runIn(0, "refresh")
         return hubAction
     } catch (e) {
-        log.debug "runCmd hit exception ${e} on ${hubAction}"
+        log "sendCommand - runCmd hit exception ${e} on ${hubAction}"
     }
 }
 
 def refresh() {
     log.info('Refreshing')
-    if (!settings.messageId || !settings.deviceIp || !settings.sign || !settings.timestamp) {
+     if (!settings.deviceIp || !settings.key) {
         sendEvent(name: 'switch', value: 'offline', isStateChange: false)
-        log 'missing setting configuration'
+        log.warn('missing setting configuration')
         return
     }
     try {
+        def payloadData = getSign()
+        log.info('Refreshing')
+
         def hubAction = new hubitat.device.HubAction([
         method: 'POST',
         path: '/config',
@@ -90,12 +95,12 @@ def refresh() {
             'HOST': settings.deviceIp,
             'Content-Type': 'application/json',
         ],
-        body: '{"payload":{},"header":{"messageId":"'+settings.messageId+'","method":"GET","from":"http://'+settings.deviceIp+'/config","sign":"'+settings.sign+'","namespace": "Appliance.System.All","triggerSrc":"iOSLocal","timestamp":' + settings.timestamp + ',"payloadVersion":1}}'
+        body: '{"payload":{},"header":{"messageId":"'+payloadData.get('MessageId')+'","method":"GET","from":"http://'+settings.deviceIp+'/subscribe","sign":"'+ payloadData.get('Sign') +'","namespace": "Appliance.System.All","triggerSrc":"AndroidLocal","timestamp":' + payloadData.get('CurrentTime') + ',"payloadVersion":1}}'
     ])
-        log hubAction
+        log.debug hubAction
         return hubAction
     } catch (Exception e) {
-        log.debug "runCmd hit exception ${e} on ${hubAction}"
+        log "refresh - runCmd hit exception ${e} on ${hubAction}"
     }
 }
 
@@ -166,6 +171,21 @@ def parse(String description) {
     } else {
         refresh()
     }
+}
+
+def getSign(int stringLength = 16){
+    // Generate a random string 
+    def chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    def randomString = new Random().with { (0..stringLength).collect { chars[ nextInt(chars.length() ) ] }.join()}    
+    int currentTime = new Date().getTime() / 1000
+    messageId = MessageDigest.getInstance("MD5").digest((randomString + currentTime.toString()).bytes).encodeHex().toString()
+    sign = MessageDigest.getInstance("MD5").digest((messageId + settings.key + currentTime.toString()).bytes).encodeHex().toString()
+    def requestData = [
+         CurrentTime: currentTime,
+         MessageId: messageId,
+         Sign: sign
+    ]
+    return requestData
 }
 
 def log(msg) {
