@@ -1,5 +1,5 @@
 /**
- * ! 1: Goto https://iot.meross.com/v1/Auth/login
+ * ! 1: Goto https://iot.meross.com/v1/Auth/signIn
  * ! 2: right click the page, select inspect, goto the dev console
  * ! 3: paste in this code, replace your username and pass, hit enter
  */
@@ -223,7 +223,7 @@ var randomString = function (length) {
   };
 
   try {
-    const response = await fetch("https://iot.meross.com/v1/Auth/login", {
+    const response = await fetch("https://iot.meross.com/v1/Auth/signIn", {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },

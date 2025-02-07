@@ -40,7 +40,7 @@ python3 -m pip install requests
 
 If you're not familiar with python you can also generate a key using chrome or any other modern browser using the [included JS script](./login.js).
 
-1. Go to https://iot.meross.com/v1/Auth/login in your browser
+1. Go to https://iot.meross.com/v1/Auth/signIn in your browser
 1. Right click on the page, click inspect and locate the console in Chrome Dev Tools
 1. Paste the script into the console
 1. Update USERNAME and PASSWORD strings in the last line. Hit enter.
